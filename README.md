@@ -13,7 +13,7 @@
 | 序号 | 脚本名称 | 功能简介 | 最新版本 | 油猴直链安装 | 国内免翻加速安装 |
 | :---: | :--- | :--- | :---: | :---: | :---: |
 | 1 | **网页链接二维码生成器 (可移动/手机端适配)** | 在网页侧面生成可自由拖拽的悬浮二维码小图标，点击后展开高清二维码，再次点击二维码立即收起并恢复小图标。完美适配手机端与PC端浏览器，支持拖拽定位、位置记忆、SPA无刷新链接动态更新、一键复制链接。 | `v1.0.3` | [🚀 立即安装](https://raw.githubusercontent.com/qingshanh/userscripts/main/url-to-qrcode.user.js) | [⚡ 加速安装](https://ghproxy.net/https://raw.githubusercontent.com/qingshanh/userscripts/main/url-to-qrcode.user.js) |
-| 2 | **网页智能转PDF (选区/自适应宽度/Adobe级矢量排版)** | 通用高质量网页转 PDF 工具：突破严格 CSP 页面样式拦截，彻底解决样式错乱变形、单页截断、内容丢失；极速秒开、零卡顿；悬浮按钮可自由拖拽、面板默认折叠；自适应剔除留白、修复论坛与长列表断页；支持自由点选起止元素、原生高清矢量打印。 | `v2.5.0` | [🚀 立即安装](https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js) | [⚡ 加速安装](https://ghproxy.net/https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js) |
+| 2 | **网页智能转PDF (选区/自适应宽度/Adobe级矢量排版)** | 通用高质量网页转 PDF 工具：紧凑微型 PDF 徽标防遮挡、深度适配手机端触控手势与直接下载；突破严格 CSP 页面拦截；自适应剔除留白、修复多区块截断；支持自由点选起止元素、A4矢量打印与单页长图无损导出。 | `v2.6.0` | [🚀 立即安装](https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js) | [⚡ 加速安装](https://ghproxy.net/https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js) |
 
 ---
 

@@ -1,23 +1,26 @@
 ﻿// ==UserScript==
 // @name         网页智能转PDF (选区/自适应宽度/Adobe级矢量排版)
 // @namespace    https://github.com/qingshanh/userscripts
-// @version      2.5.0
-// @description  通用高质量网页转 PDF 工具：突破严格 CSP 页面样式拦截，彻底解决样式错乱变形、单页截断、内容丢失；极速秒开、零卡顿；悬浮按钮可自由拖拽、面板默认折叠；自适应剔除留白、修复论坛与长列表断页；支持自由点选起止元素、原生高清矢量打印。
+// @version      2.6.0
+// @description  通用高质量网页转 PDF 工具：紧凑微型 PDF 徽标防遮挡、深度适配手机端触控手势与直接下载；突破严格 CSP 页面拦截；自适应剔除留白、修复多区块截断；支持自由点选起止元素、A4矢量打印与单页长图无损导出。
 // @author       Lance
 // @match        *://*/*
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
-// @run-at       document-idle
 // @homepageURL  https://github.com/qingshanh/userscripts
 // @supportURL   https://github.com/qingshanh/userscripts/issues
 // @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js
 // @downloadURL  https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js
+// @run-at       document-idle
 // ==/UserScript==
 
 (function () {
   "use strict";
 
   if (window.top !== window.self) return;
+
+  // 0. 移动端环境感知
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent) || window.innerWidth <= 640;
 
   // 1. 页面物理尺寸度量
   function getDocDimensions() {
@@ -51,23 +54,23 @@
 
     customX: null,
     customWidth: null,
-    widthPreset: "auto", // "auto" | "750" | "850" | "1050" | "100%" | "custom"
+    widthPreset: "auto",
 
-    engine: "vector",    // "vector" (推荐) | "canvas"
+    // 手机端优先采用直接下载模式，避免移动端 iframe 打印失效
+    engine: isMobile ? "canvas" : "vector",
     format: "a4",
     smartBreak: true,
     pageMargin: 10,
 
-    pickerMode: null,    // "start" | "end" | null
+    pickerMode: null,
     isOverlayOpen: false,
     isProcessing: false
   };
 
-  // 3. 智能查找关键块级容器（确保序号、卡片、段落整体被选中）
+  // 3. 智能查找关键块级容器
   function getSignificantBlock(el) {
     if (!el || el === document.body || el === document.documentElement) return el;
     
-    // 如果处于独立卡片或论坛楼层内部，选中该卡片/楼层整体
     const cardOrFloor = el.closest(".topic-post, [data-post-number], [id^=\"post_\"], .l_post, .card, [class*=\"card\"], section");
     if (cardOrFloor && cardOrFloor !== document.body) return cardOrFloor;
 
@@ -105,7 +108,7 @@
     return document.body;
   }
 
-  // 5. 通用正文宽度探测（只用于计算自适应排版宽度，绝不丢弃任何内容节点！）
+  // 5. 通用正文宽度探测
   function detectVisualContentWidth() {
     const docW = getDocDimensions().width;
 
@@ -172,7 +175,7 @@
     };
   }
 
-  // 6. UI 与交互层（彻底突破 CSP 限制的双模渲染引擎）
+  // 7. UI 与交互层（彻底突破 CSP 限制的双模渲染引擎）
   let shadowRoot = null;
   let hostElement = null;
   let uiContainer = null;
@@ -191,50 +194,52 @@
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
       }
       
-      /* Adobe 风格可拖拽悬浮胶囊 */
+      /* 紧凑微型 PDF 悬浮胶囊：占用空间极小、绝不遮挡视野 */
       #pdf-fab {
         position: fixed !important;
-        right: 20px !important;
-        bottom: 75px !important;
-        height: 38px !important;
-        padding: 0 14px !important;
-        border-radius: 19px !important;
+        right: 16px !important;
+        bottom: 70px !important;
+        height: 26px !important;
+        line-height: 26px !important;
+        padding: 0 9px !important;
+        border-radius: 13px !important;
         background: #e11d48 !important;
         color: #ffffff !important;
-        box-shadow: 0 4px 14px rgba(225, 29, 72, 0.4) !important;
+        box-shadow: 0 3px 10px rgba(225, 29, 72, 0.35) !important;
         display: flex !important;
         align-items: center !important;
-        gap: 6px !important;
+        justify-content: center !important;
         cursor: grab !important;
         user-select: none !important;
+        -webkit-user-select: none !important;
         touch-action: none !important;
-        transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s !important;
+        transition: transform 0.15s, box-shadow 0.15s, background-color 0.15s, opacity 0.15s !important;
         z-index: 2147483647 !important;
-        font-weight: 600 !important;
-        font-size: 13px !important;
-        line-height: 1 !important;
-        border: none !important;
+        font-weight: 700 !important;
+        font-size: 11px !important;
+        letter-spacing: 0.5px !important;
+        border: 1px solid rgba(255, 255, 255, 0.25) !important;
         visibility: visible !important;
-        opacity: 1 !important;
+        opacity: 0.9 !important;
       }
       #pdf-fab:hover {
-        transform: scale(1.05) !important;
-        box-shadow: 0 6px 18px rgba(225, 29, 72, 0.5) !important;
+        transform: scale(1.06) !important;
+        box-shadow: 0 5px 14px rgba(225, 29, 72, 0.5) !important;
+        opacity: 1 !important;
       }
       #pdf-fab.dragging {
         cursor: grabbing !important;
-        transform: scale(1.08) !important;
-        box-shadow: 0 8px 24px rgba(225, 29, 72, 0.6) !important;
+        transform: scale(1.12) !important;
+        box-shadow: 0 6px 18px rgba(225, 29, 72, 0.6) !important;
         background: #be123c !important;
+        opacity: 1 !important;
       }
-      #pdf-fab svg { width: 18px !important; height: 18px !important; fill: currentColor !important; pointer-events: none !important; }
-      #pdf-fab span { pointer-events: none !important; color: #ffffff !important; font-size: 13px !important; }
 
-      /* 控制面板：默认折叠隐藏！固定 360px 宽度，带白底与边框 */
+      /* 控制面板：默认折叠隐藏！电脑端 360px，手机端自适应居中 */
       #pdf-panel {
         position: fixed !important;
         right: 20px !important;
-        bottom: 125px !important;
+        bottom: 115px !important;
         width: 360px !important;
         min-width: 360px !important;
         background: #ffffff !important;
@@ -247,7 +252,7 @@
         flex-direction: column !important;
         color: #1e293b !important;
         font-size: 13px !important;
-        transition: opacity 0.15s ease !important;
+        transition: opacity 0.15s ease, transform 0.15s ease !important;
         visibility: visible !important;
         opacity: 1 !important;
       }
@@ -264,6 +269,7 @@
         justify-content: space-between !important;
         cursor: move !important;
         user-select: none !important;
+        -webkit-user-select: none !important;
       }
       .panel-title {
         font-size: 13px !important;
@@ -329,7 +335,7 @@
       }
       .btn {
         flex: 1 !important;
-        padding: 5px 6px !important;
+        padding: 6px 6px !important;
         font-size: 11px !important;
         border-radius: 4px !important;
         border: 1px solid #cbd5e1 !important;
@@ -342,6 +348,7 @@
         gap: 4px !important;
         transition: all 0.15s !important;
         white-space: nowrap !important;
+        min-height: 28px !important;
       }
       .btn:hover {
         background: #f1f5f9 !important;
@@ -361,7 +368,7 @@
       }
       .preset-btn {
         flex: 1 !important;
-        padding: 4px 2px !important;
+        padding: 5px 2px !important;
         font-size: 10px !important;
         text-align: center !important;
         border-radius: 4px !important;
@@ -369,6 +376,7 @@
         background: #fff !important;
         color: #334155 !important;
         cursor: pointer !important;
+        min-height: 28px !important;
       }
       .preset-btn:hover { background: #f1f5f9 !important; }
       .preset-btn.active {
@@ -383,6 +391,7 @@
         gap: 10px !important;
         margin-top: 4px !important;
         font-size: 12px !important;
+        flex-wrap: wrap !important;
       }
       .radio-label {
         display: flex !important;
@@ -390,10 +399,11 @@
         gap: 4px !important;
         cursor: pointer !important;
         color: #1e293b !important;
+        min-height: 24px !important;
       }
 
       .export-btn {
-        padding: 9px !important;
+        padding: 10px !important;
         font-size: 13px !important;
         border-radius: 6px !important;
         background: linear-gradient(135deg, #e11d48, #be123c) !important;
@@ -407,6 +417,7 @@
         gap: 6px !important;
         box-shadow: 0 4px 10px rgba(225, 29, 72, 0.3) !important;
         transition: transform 0.15s, opacity 0.15s !important;
+        min-height: 38px !important;
       }
       .export-btn:hover {
         opacity: 0.95 !important;
@@ -472,6 +483,7 @@
         position: absolute !important;
         background: rgba(225, 29, 72, 0.9) !important;
         z-index: 2147483635 !important;
+        touch-action: none !important;
       }
       .crop-guide-line.horizontal {
         left: 0 !important;
@@ -495,13 +507,46 @@
         padding: 2px 5px !important;
         border-radius: 3px !important;
         user-select: none !important;
+        -webkit-user-select: none !important;
         pointer-events: auto !important;
         white-space: nowrap !important;
         box-shadow: 0 2px 5px rgba(0,0,0,0.25) !important;
       }
+
+      /* 📱 手机端专属响应式调优 (<= 640px) */
+      @media (max-width: 640px) {
+        #pdf-fab {
+          right: 12px !important;
+          bottom: 60px !important;
+          height: 24px !important;
+          line-height: 24px !important;
+          padding: 0 8px !important;
+          font-size: 10px !important;
+          border-radius: 12px !important;
+        }
+        #pdf-panel {
+          width: calc(100vw - 20px) !important;
+          min-width: 0 !important;
+          max-width: 380px !important;
+          left: 50% !important;
+          right: auto !important;
+          bottom: 12px !important;
+          transform: translateX(-50%) !important;
+          max-height: 82vh !important;
+          border-radius: 14px !important;
+        }
+        .panel-body {
+          max-height: 72vh !important;
+          padding: 10px 12px !important;
+          gap: 8px !important;
+        }
+        .btn, .preset-btn, .export-btn {
+          min-height: 32px !important;
+        }
+      }
     `;
 
-    // 关键突破 1：使用 Tampermonkey 的 GM_addStyle 全局特权注入（彻底无视网站 CSP style-src-elem 限制）
+    // 1. GM_addStyle 特权注入
     if (typeof GM_addStyle !== "undefined") {
       try {
         GM_addStyle(cssContent);
@@ -510,7 +555,7 @@
       }
     }
 
-    // 关键突破 2：在 Shadow DOM 中采用 Constructable StyleSheets (CSSStyleSheet.replaceSync)，不产生内联 <style> 标签，CSP 绝不拦截！
+    // 2. 在 Shadow DOM 中使用 Constructable StyleSheets
     let shadowStyled = false;
     try {
       shadowRoot = hostElement.attachShadow({ mode: "open" });
@@ -524,7 +569,6 @@
       console.warn("[PDF工具] Shadow DOM 初始化异常，平滑降级至 Light DOM:", e);
     }
 
-    // 如果未成功附加样式表，使用降级方案直接在 Light DOM 运行（受 GM_addStyle 100% 保护）
     if (!shadowRoot || !shadowStyled) {
       uiContainer = hostElement;
     } else {
@@ -533,12 +577,7 @@
 
     const template = document.createElement("div");
     template.innerHTML = `
-      <div id="pdf-fab" title="拖动可移动位置 / 点击打开控制面板">
-        <svg viewBox="0 0 24 24">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/>
-        </svg>
-        <span>转 PDF</span>
-      </div>
+      <div id="pdf-fab" title="拖动可移动位置 / 点击打开控制面板">PDF</div>
 
       <div id="pdf-panel" class="hidden">
         <div class="panel-header" id="panel-drag-bar">
@@ -594,13 +633,13 @@
               <span>⚙️ 导出格式与引擎</span>
             </div>
             <div class="radio-row">
-              <label class="radio-label" title="Adobe式矢量提取打印：极速秒出、绝不卡死、文字可复制、排版完美">
-                <input type="radio" name="pdf-engine" value="vector" checked>
-                <span style="font-weight:600; color:#0f172a;">A4 矢量打印 (推荐)</span>
+              <label class="radio-label" title="通过浏览器Canvas直接生成并保存PDF文件，手机端100%稳定支持下载">
+                <input type="radio" name="pdf-engine" value="canvas" ${isMobile ? "checked" : ""}>
+                <span style="font-weight:600; color:#e11d48;">下载 PDF 文件 (手机推荐)</span>
               </label>
-              <label class="radio-label" title="通过Canvas生成的图片版单页长图">
-                <input type="radio" name="pdf-engine" value="canvas">
-                <span>单页长图 (图片版)</span>
+              <label class="radio-label" title="Adobe式矢量提取打印：调起浏览器打印窗口另存为PDF">
+                <input type="radio" name="pdf-engine" value="vector" ${!isMobile ? "checked" : ""}>
+                <span>A4 矢量打印 (电脑推荐)</span>
               </label>
             </div>
           </div>
@@ -642,7 +681,7 @@
     updateUI();
   }
 
-  // 7. 事件绑定与可拖拽悬浮球
+  // 8. 事件绑定与触控/手势深度兼容
   function bindEvents() {
     const $ = (id) => uiContainer.getElementById ? uiContainer.getElementById(id) : uiContainer.querySelector("#" + id);
 
@@ -657,23 +696,34 @@
         const l = parseFloat(left);
         const t = parseFloat(top);
         if (!isNaN(l) && !isNaN(t) && l < window.innerWidth && t < window.innerHeight) {
-          fab.style.left = Math.max(10, Math.min(window.innerWidth - 80, l)) + "px";
-          fab.style.top = Math.max(10, Math.min(window.innerHeight - 50, t)) + "px";
+          fab.style.left = Math.max(8, Math.min(window.innerWidth - 60, l)) + "px";
+          fab.style.top = Math.max(8, Math.min(window.innerHeight - 40, t)) + "px";
           fab.style.right = "auto";
           fab.style.bottom = "auto";
         }
       }
     } catch (e) {}
 
-    // 智能定位面板在悬浮按钮附近，且强制约束在可视窗口内，绝不掉出左侧或右侧
+    // 面板自适应对齐：手机端自动居中贴底，桌面端吸附在胶囊周围
     function positionPanelNearFab() {
+      if (window.innerWidth <= 640) {
+        panel.style.left = "50%";
+        panel.style.transform = "translateX(-50%)";
+        panel.style.right = "auto";
+        panel.style.bottom = "12px";
+        panel.style.top = "auto";
+        panel.style.width = "calc(100vw - 20px)";
+        panel.style.minWidth = "0";
+        panel.style.maxWidth = "380px";
+        return;
+      }
+
+      panel.style.transform = "none";
       const fabR = fab.getBoundingClientRect();
       let pLeft;
       if (fabR.left < window.innerWidth / 2) {
-        // 如果悬浮按钮在屏幕左侧，面板向右展开
         pLeft = fabR.left;
       } else {
-        // 如果悬浮按钮在屏幕右侧，面板向左展开
         pLeft = fabR.right - 360;
       }
       let pTop = fabR.top - 460;
@@ -693,56 +743,83 @@
       panel.style.bottom = "auto";
     }
 
-    let fabDragging = false;
-    let fabMoved = false;
-    let fabStartX = 0, fabStartY = 0;
-    let fabInitLeft = 0, fabInitTop = 0;
+    // 悬浮胶囊：Pointer Events + Touch Events 全端拖拽与防误触
+    let isPointerDown = false;
+    let isDragging = false;
+    let justDragged = false;
+    let dragTimer = null;
+    let startX = 0, startY = 0;
+    let startLeft = 0, startTop = 0;
 
-    fab.addEventListener("mousedown", (e) => {
-      fabDragging = true;
-      fabMoved = false;
-      fabStartX = e.clientX;
-      fabStartY = e.clientY;
+    function onPointerDown(e) {
+      if (e.button && e.button !== 0) return;
+      isPointerDown = true;
+      isDragging = false;
+
+      startX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      startY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+
       const rect = fab.getBoundingClientRect();
-      fabInitLeft = rect.left;
-      fabInitTop = rect.top;
-      e.preventDefault();
-    });
+      startLeft = rect.left;
+      startTop = rect.top;
 
-    window.addEventListener("mousemove", (e) => {
-      if (!fabDragging) return;
-      const dx = e.clientX - fabStartX;
-      const dy = e.clientY - fabStartY;
+      if (e.pointerId && typeof fab.setPointerCapture === "function") {
+        try { fab.setPointerCapture(e.pointerId); } catch (err) {}
+      }
+    }
 
-      if (Math.hypot(dx, dy) > 4) {
-        fabMoved = true;
+    function onPointerMove(e) {
+      if (!isPointerDown) return;
+      const curX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+      const curY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+      const dx = curX - startX;
+      const dy = curY - startY;
+
+      if (!isDragging && Math.hypot(dx, dy) > 6) {
+        isDragging = true;
         fab.classList.add("dragging");
+      }
 
-        let newLeft = fabInitLeft + dx;
-        let newTop = fabInitTop + dy;
-        newLeft = Math.max(10, Math.min(window.innerWidth - fab.offsetWidth - 10, newLeft));
-        newTop = Math.max(10, Math.min(window.innerHeight - fab.offsetHeight - 10, newTop));
+      if (isDragging) {
+        if (e.cancelable) e.preventDefault();
+        let newLeft = startLeft + dx;
+        let newTop = startTop + dy;
+        newLeft = Math.max(8, Math.min(window.innerWidth - fab.offsetWidth - 8, newLeft));
+        newTop = Math.max(8, Math.min(window.innerHeight - fab.offsetHeight - 8, newTop));
 
         fab.style.left = newLeft + "px";
         fab.style.top = newTop + "px";
         fab.style.right = "auto";
         fab.style.bottom = "auto";
       }
-    });
+    }
 
-    window.addEventListener("mouseup", () => {
-      if (!fabDragging) return;
-      fabDragging = false;
-      fab.classList.remove("dragging");
+    function onPointerUp(e) {
+      if (!isPointerDown) return;
+      isPointerDown = false;
 
-      if (fabMoved) {
+      if (e.pointerId && typeof fab.releasePointerCapture === "function") {
+        try { fab.releasePointerCapture(e.pointerId); } catch (err) {}
+      }
+
+      if (isDragging) {
+        isDragging = false;
+        fab.classList.remove("dragging");
+
         try {
           localStorage.setItem("smart_pdf_fab_pos", JSON.stringify({
             left: fab.style.left,
             top: fab.style.top
           }));
-        } catch (e) {}
+        } catch (err) {}
+
+        justDragged = true;
+        clearTimeout(dragTimer);
+        dragTimer = setTimeout(() => {
+          justDragged = false;
+        }, 140);
       } else {
+        if (justDragged) return;
         const isHidden = panel.classList.contains("hidden");
         if (isHidden) {
           positionPanelNearFab();
@@ -751,7 +828,17 @@
           panel.classList.add("hidden");
         }
       }
-    });
+    }
+
+    fab.addEventListener("pointerdown", onPointerDown, { passive: false });
+    window.addEventListener("pointermove", onPointerMove, { passive: false });
+    window.addEventListener("pointerup", onPointerUp, { passive: false });
+    window.addEventListener("pointercancel", onPointerUp, { passive: false });
+
+    fab.addEventListener("touchstart", onPointerDown, { passive: false });
+    window.addEventListener("touchmove", onPointerMove, { passive: false });
+    window.addEventListener("touchend", onPointerUp, { passive: false });
+    window.addEventListener("touchcancel", onPointerUp, { passive: false });
 
     closeBtn.addEventListener("click", () => {
       panel.classList.add("hidden");
@@ -762,7 +849,7 @@
     let pDragOffX = 0, pDragOffY = 0;
 
     dragBar.addEventListener("mousedown", (e) => {
-      if (e.target === closeBtn) return;
+      if (e.target === closeBtn || window.innerWidth <= 640) return;
       panelDragging = true;
       const rect = panel.getBoundingClientRect();
       pDragOffX = e.clientX - rect.left;
@@ -853,9 +940,15 @@
     $("start-export-btn").addEventListener("click", onExportClick);
 
     setupGuideDragging();
+
+    window.addEventListener("resize", () => {
+      if (!panel.classList.contains("hidden")) {
+        positionPanelNearFab();
+      }
+    });
   }
 
-  // 8. 元素吸附选取器
+  // 9. 元素吸附选取器 (全面支持桌面鼠标移动与手机屏幕轻触)
   function startPicker(mode) {
     state.pickerMode = mode;
     const $ = (id) => uiContainer.getElementById ? uiContainer.getElementById(id) : uiContainer.querySelector("#" + id);
@@ -871,8 +964,8 @@
     hoverRect.style.display = "block";
     tooltip.style.display = "block";
 
-    const onMouseMove = (e) => {
-      const rawTarget = document.elementFromPoint(e.clientX, e.clientY);
+    function updateHoverAt(clientX, clientY) {
+      const rawTarget = document.elementFromPoint(clientX, clientY);
       if (!rawTarget || rawTarget.closest("#smart-pdf-exporter-host")) return;
 
       const target = getSignificantBlock(rawTarget);
@@ -887,17 +980,18 @@
       const snippet = (target.innerText || "").trim().slice(0, 15);
 
       tooltip.innerText = isStart
-        ? "📌 设为【起点】: <" + tagDesc + "> \"" + snippet + "...\""
-        : "🏁 设为【终点】: <" + tagDesc + "> \"" + snippet + "...\"";
+        ? "📌 点击设为【起点】: <" + tagDesc + "> \"" + snippet + "...\""
+        : "🏁 点击设为【终点】: <" + tagDesc + "> \"" + snippet + "...\"";
       tooltip.style.top = Math.max(10, rect.top + window.scrollY - 30) + "px";
       tooltip.style.left = (rect.left + window.scrollX) + "px";
+    }
+
+    const onMouseMove = (e) => {
+      updateHoverAt(e.clientX, e.clientY);
     };
 
-    const onClick = (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-
-      const rawTarget = document.elementFromPoint(e.clientX, e.clientY);
+    function applySelection(clientX, clientY) {
+      const rawTarget = document.elementFromPoint(clientX, clientY);
       if (rawTarget && !rawTarget.closest("#smart-pdf-exporter-host")) {
         const target = getSignificantBlock(rawTarget);
         const rect = target.getBoundingClientRect();
@@ -909,11 +1003,25 @@
           state.customEndY = Math.ceil(rect.bottom + window.scrollY);
         }
       }
-
       cleanup();
       panel.classList.remove("hidden");
       updateUI();
       syncGuides();
+    }
+
+    const onClick = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      applySelection(e.clientX, e.clientY);
+    };
+
+    const onTouchEnd = (e) => {
+      if (e.changedTouches && e.changedTouches.length > 0) {
+        const touch = e.changedTouches[0];
+        e.preventDefault();
+        e.stopPropagation();
+        applySelection(touch.clientX, touch.clientY);
+      }
     };
 
     const onKeyDown = (e) => {
@@ -929,15 +1037,17 @@
       tooltip.style.display = "none";
       window.removeEventListener("mousemove", onMouseMove, true);
       window.removeEventListener("click", onClick, true);
+      window.removeEventListener("touchend", onTouchEnd, true);
       window.removeEventListener("keydown", onKeyDown, true);
     }
 
     window.addEventListener("mousemove", onMouseMove, true);
     window.addEventListener("click", onClick, true);
+    window.addEventListener("touchend", onTouchEnd, { passive: false, capture: true });
     window.addEventListener("keydown", onKeyDown, true);
   }
 
-  // 9. 智能滚屏加载懒加载图片
+  // 10. 智能滚屏加载懒加载图片
   async function smoothPreload() {
     const $ = (id) => uiContainer.getElementById ? uiContainer.getElementById(id) : uiContainer.querySelector("#" + id);
     const btn = $("scroll-preload-btn");
@@ -957,11 +1067,11 @@
 
     window.scrollTo({ top: origY, behavior: "instant" });
     btn.disabled = false;
-    btn.innerText = "⬇️ 预加载楼层与图片";
+    btn.innerText = "⬇️ 预加载动态内容";
     updateUI();
   }
 
-  // 10. 参考线拖动手柄与页面自由滚动联动
+  // 11. 参考线拖动手柄与页面自由滚动联动 (支持 Touch 触控)
   function setupGuideDragging() {
     const $ = (id) => uiContainer.getElementById ? uiContainer.getElementById(id) : uiContainer.querySelector("#" + id);
     const gTop = $("guide-top");
@@ -972,39 +1082,48 @@
     function makeDraggable(el, type) {
       let active = false;
 
-      el.addEventListener("mousedown", (e) => {
+      function onStart(e) {
         active = true;
         e.preventDefault();
         e.stopPropagation();
-      });
+      }
 
-      window.addEventListener("mousemove", (e) => {
+      function onMove(e) {
         if (!active) return;
+        const curX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
+        const curY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
         const crop = getEffectiveCrop();
 
         if (type === "top") {
-          state.customStartY = Math.max(0, Math.round(e.clientY + window.scrollY));
+          state.customStartY = Math.max(0, Math.round(curY + window.scrollY));
         } else if (type === "bottom") {
-          state.customEndY = Math.max(20, Math.round(e.clientY + window.scrollY));
+          state.customEndY = Math.max(20, Math.round(curY + window.scrollY));
         } else if (type === "left") {
-          const docX = Math.round(e.clientX + window.scrollX);
+          const docX = Math.round(curX + window.scrollX);
           const right = crop.x + crop.width;
-          state.customWidth = Math.max(100, right - docX);
+          state.customWidth = Math.max(80, right - docX);
           state.customX = docX;
           state.widthPreset = "custom";
         } else if (type === "right") {
-          const docX = Math.round(e.clientX + window.scrollX);
-          state.customWidth = Math.max(100, docX - crop.x);
+          const docX = Math.round(curX + window.scrollX);
+          state.customWidth = Math.max(80, docX - crop.x);
           state.customX = crop.x;
           state.widthPreset = "custom";
         }
         updateUI();
         syncGuides();
-      });
+      }
 
-      window.addEventListener("mouseup", () => {
+      function onEnd() {
         if (active) active = false;
-      });
+      }
+
+      el.addEventListener("mousedown", onStart);
+      el.addEventListener("touchstart", onStart, { passive: false });
+      window.addEventListener("mousemove", onMove);
+      window.addEventListener("touchmove", onMove, { passive: false });
+      window.addEventListener("mouseup", onEnd);
+      window.addEventListener("touchend", onEnd);
     }
 
     makeDraggable(gTop, "top");
@@ -1013,9 +1132,6 @@
     makeDraggable(gRight, "right");
 
     window.addEventListener("scroll", () => {
-      if (state.isOverlayOpen) syncGuides();
-    }, { passive: true });
-    window.addEventListener("resize", () => {
       if (state.isOverlayOpen) syncGuides();
     }, { passive: true });
   }
@@ -1052,7 +1168,7 @@
     gRight.style.height = Math.max(10, Math.min(window.innerHeight, viewBottom) - Math.max(0, viewTop)) + "px";
   }
 
-  // 11. 刷新面板状态文字
+  // 12. 刷新面板状态文字
   function updateUI() {
     const $ = (id) => uiContainer.getElementById ? uiContainer.getElementById(id) : uiContainer.querySelector("#" + id);
     const crop = getEffectiveCrop();
@@ -1092,20 +1208,17 @@
     }
   }
 
-  // 12. 提取起止内容（通用设计：默认全量保留整页，决不丢失后文章节）
+  // 13. 提取起止内容（通用设计：默认全量保留整页，决不丢失后文章节）
   function extractRangeContent(crop) {
     let targetStart = state.startElement;
     let targetEnd = state.endElement;
 
-    // 核心铁律：未指定起点和终点时，代表全量导出整个页面！
-    // 直接克隆整个 document.body，保留页面上所有 Section、卡片、表格，绝对不随意挑一个 div 截断后文！
     if (!targetStart && !targetEnd) {
       const clone = document.body.cloneNode(true);
       cleanInteractiveNoise(clone);
       return clone.innerHTML;
     }
 
-    // 指定了起点或终点时，以顶级 body 为大树，确保后续所有章节完整存在
     const container = document.body;
 
     if (!targetStart) {
@@ -1126,7 +1239,6 @@
     const cloneStart = clone.querySelector("[data-pdf-start-marker]");
     const cloneEnd = clone.querySelector("[data-pdf-end-marker]");
 
-    // 修复列表有序编号
     if (targetStart.tagName.toLowerCase() === "li") {
       const parentOl = targetStart.closest("ol");
       if (parentOl) {
@@ -1195,7 +1307,7 @@
     });
   }
 
-  // 13. 统一导出入口
+  // 14. 统一导出入口
   async function onExportClick() {
     if (state.isProcessing) return;
     state.isProcessing = true;
@@ -1218,11 +1330,11 @@
       if (state.engine === "vector") {
         updateProgress(30, "正在提取全页内容并装配矢量排版...");
         await executeVectorPrint(updateProgress);
-        updateProgress(100, "🎉 已调起系统打印，请选择「另存为 PDF」");
+        updateProgress(100, isMobile ? "🎉 正在调起系统打印预览..." : "🎉 已调起系统打印，请选择「另存为 PDF」");
       } else {
-        updateProgress(20, "正在按需加载图像渲染库...");
+        updateProgress(20, "正在加载高性能 PDF 生成模块...");
         await executeCanvasExport(updateProgress);
-        updateProgress(100, "🎉 导出成功！已触发浏览器下载。");
+        updateProgress(100, "🎉 导出成功！已触发浏览器直接下载文件。");
       }
 
       setTimeout(() => {
@@ -1240,10 +1352,10 @@
     }
   }
 
-  // 14. Adobe 级原生矢量排版引擎（彻底根治通用页面截断与只出一页纸问题）
+  // 15. Adobe 级原生矢量排版引擎
   async function executeVectorPrint(updateProgress) {
     const crop = getEffectiveCrop();
-    const docTitle = (document.title || "网页文档").replace(/[\\/:*?\"<>|]/g, "_").trim();
+    const docTitle = (document.title || "网页文档").replace(/[\/:*?"<>|]/g, "_").trim();
 
     const contentHtml = extractRangeContent(crop);
 
@@ -1277,6 +1389,7 @@
       <html>
         <head>
           <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <title>${docTitle}</title>
           <base href="${window.location.href}">
           ${stylesHtml}
@@ -1288,7 +1401,6 @@
             *, *::before, *::after {
               box-sizing: border-box !important;
             }
-            /* 核心突破：强制解除所有容器的 overflow:hidden 与 100% / 100vh 高度限制，彻底消灭 Chromium 只打印 1 页的严重截断缺陷！ */
             html, body, #app, #root, #__next, div, main, section, article, .container, .wrapper, .main-content {
               height: auto !important;
               min-height: 0 !important;
@@ -1316,7 +1428,6 @@
               overflow: visible !important;
               display: block !important;
             }
-            /* 允许所有通用区块、卡片容器、表格自由跨页排版 */
             section, div, article, main, table, ul, ol, .grid, .flex, .topic-list, .post-stream {
               break-inside: auto !important;
               page-break-inside: auto !important;
@@ -1325,7 +1436,6 @@
               max-height: none !important;
               overflow: visible !important;
             }
-            /* 保证卡片单元、表格行、图片不被横切腰斩 */
             .card, [class*="card"], tr, img, pre, figure, .highlight {
               break-inside: avoid !important;
               page-break-inside: avoid !important;
@@ -1385,14 +1495,23 @@
     `);
     iframeDoc.close();
 
-    updateProgress(85, "正在调起浏览器原生打印...");
+    updateProgress(85, "正在调起打印排版预览...");
     await new Promise(r => setTimeout(r, 600));
 
-    iframe.contentWindow.focus();
-    iframe.contentWindow.print();
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (printErr) {
+      console.warn("[PDF工具] iframe 打印受阻，尝试备用打印通道:", printErr);
+      if (isMobile) {
+        alert("移动端浏览器限制了后台打印，已自动为您切换为直接下载 PDF 文件！");
+        state.engine = "canvas";
+        await executeCanvasExport(updateProgress);
+      }
+    }
   }
 
-  // 15. Canvas 模式（按需加载，单页长图）
+  // 16. 高性能直接下载模式（手机端完美兼容，零依赖打印机）
   async function loadLibraryOnDemand(url, checkGlobal) {
     if (checkGlobal()) return true;
     return new Promise((resolve, reject) => {
@@ -1405,16 +1524,16 @@
   }
 
   async function executeCanvasExport(updateProgress) {
-    updateProgress(25, "按需加载 html2canvas 与 jsPDF...");
+    updateProgress(25, "加载 html2canvas 与 jsPDF...");
     await loadLibraryOnDemand("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js", () => !!window.html2canvas);
     await loadLibraryOnDemand("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js", () => !!(window.jspdf?.jsPDF || window.jsPDF));
 
-    updateProgress(45, "正在测量安全渲染高度...");
+    updateProgress(45, "正在测量页面与自适应几何...");
     const crop = getEffectiveCrop();
     const renderScale = crop.height > 6000 ? 1.2 : 1.5;
 
     hostElement.style.display = "none";
-    updateProgress(60, "正在生成长图画布...");
+    updateProgress(60, "正在渲染高清画面...");
 
     const canvas = await window.html2canvas(document.body, {
       x: crop.x,
@@ -1432,7 +1551,7 @@
     });
 
     hostElement.style.display = "block";
-    updateProgress(85, "正在组装单页 PDF...");
+    updateProgress(85, "正在打包生成 PDF 文件...");
 
     const jsPDF = window.jspdf?.jsPDF || window.jsPDF;
     const ptW = crop.width * 0.75;
@@ -1446,11 +1565,11 @@
     const imgData = canvas.toDataURL("image/jpeg", 0.9);
     pdf.addImage(imgData, "JPEG", 0, 0, ptW, ptH);
 
-    const cleanTitle = (document.title || "网页文档").replace(/[\\/:*?\"<>|]/g, "_").trim().slice(0, 35);
-    pdf.save(cleanTitle + "_长图.pdf");
+    const cleanTitle = (document.title || "网页文档").replace(/[\/:*?"<>|]/g, "_").trim().slice(0, 35);
+    pdf.save(cleanTitle + ".pdf");
   }
 
-  // 16. 注册油猴菜单与入口
+  // 17. 注册油猴菜单与入口
   if (typeof GM_registerMenuCommand !== "undefined") {
     GM_registerMenuCommand("📑 打开转 PDF 控制台", () => {
       initUI();
