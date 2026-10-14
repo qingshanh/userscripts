@@ -10,8 +10,8 @@
 // @run-at       document-idle
 // @homepageURL  https://github.com/qingshanh/userscripts
 // @supportURL   https://github.com/qingshanh/userscripts/issues
-// @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/dist/webpage-to-pdf.user.js
-// @downloadURL  https://raw.githubusercontent.com/qingshanh/userscripts/main/dist/webpage-to-pdf.user.js
+// @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js
+// @downloadURL  https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js
 // ==/UserScript==
 
 (function () {

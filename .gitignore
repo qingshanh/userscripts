@@ -1,14 +1,21 @@
-﻿# OS & editor artifacts
-.DS_Store
-Thumbs.db
+﻿# 忽略所有本地开发工程目录及内部工具（严禁提交到 GitHub）
+/网页生成二维码/
+/网页转PDF/
+/scripts/
+/skills/
+/dist/
+/.agents/
+/.codex/
+
+# 忽略测试文件与临时缓存
+*.html
+*.min.js
 *.log
 desktop.ini
-
-# Temporary directories
+Thumbs.db
+.DS_Store
 _tmp/
 tmp/
 .temp/
-
-# Node cache
 node_modules/
 .npm-cache/

@@ -11,8 +11,8 @@
 // @run-at       document-idle
 // @homepageURL  https://github.com/qingshanh/userscripts
 // @supportURL   https://github.com/qingshanh/userscripts/issues
-// @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/dist/url-to-qrcode.user.js
-// @downloadURL  https://raw.githubusercontent.com/qingshanh/userscripts/main/dist/url-to-qrcode.user.js
+// @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/url-to-qrcode.user.js
+// @downloadURL  https://raw.githubusercontent.com/qingshanh/userscripts/main/url-to-qrcode.user.js
 // ==/UserScript==
 
 (function () {
