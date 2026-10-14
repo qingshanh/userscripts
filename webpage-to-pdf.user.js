@@ -1,12 +1,20 @@
 ﻿// ==UserScript==
 // @name         网页智能转PDF (选区/自适应宽度/Adobe级矢量排版)
 // @namespace    https://github.com/qingshanh/userscripts
-// @version      2.6.0
-// @description  通用高质量网页转 PDF 工具：紧凑微型 PDF 徽标防遮挡、深度适配手机端触控手势与直接下载；突破严格 CSP 页面拦截；自适应剔除留白、修复多区块截断；支持自由点选起止元素、A4矢量打印与单页长图无损导出。
+// @version      2.6.1
+// @description  通用高质量网页转 PDF 工具：紧凑微型 PDF 徽标防遮挡、深度适配手机端触控手势；多重国内高速镜像与离线缓存彻底解决手机端 CDN 加载失败；自适应剔除留白、修复多区块截断；支持自由点选起止元素、A4矢量打印与直接下载。
 // @author       Lance
 // @match        *://*/*
 // @grant        GM_addStyle
 // @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
+// @grant        GM_setValue
+// @grant        GM_getValue
+// @connect      npmmirror.com
+// @connect      cloudflare.com
+// @connect      unpkg.com
+// @connect      jsdelivr.net
+// @connect      *
 // @homepageURL  https://github.com/qingshanh/userscripts
 // @supportURL   https://github.com/qingshanh/userscripts/issues
 // @updateURL    https://raw.githubusercontent.com/qingshanh/userscripts/main/webpage-to-pdf.user.js
@@ -704,7 +712,6 @@
       }
     } catch (e) {}
 
-    // 面板自适应对齐：手机端自动居中贴底，桌面端吸附在胶囊周围
     function positionPanelNearFab() {
       if (window.innerWidth <= 640) {
         panel.style.left = "50%";
@@ -743,7 +750,6 @@
       panel.style.bottom = "auto";
     }
 
-    // 悬浮胶囊：Pointer Events + Touch Events 全端拖拽与防误触
     let isPointerDown = false;
     let isDragging = false;
     let justDragged = false;
@@ -1332,7 +1338,7 @@
         await executeVectorPrint(updateProgress);
         updateProgress(100, isMobile ? "🎉 正在调起系统打印预览..." : "🎉 已调起系统打印，请选择「另存为 PDF」");
       } else {
-        updateProgress(20, "正在加载高性能 PDF 生成模块...");
+        updateProgress(20, "正在从高速镜像加载渲染模块...");
         await executeCanvasExport(updateProgress);
         updateProgress(100, "🎉 导出成功！已触发浏览器直接下载文件。");
       }
@@ -1511,22 +1517,120 @@
     }
   }
 
-  // 16. 高性能直接下载模式（手机端完美兼容，零依赖打印机）
-  async function loadLibraryOnDemand(url, checkGlobal) {
-    if (checkGlobal()) return true;
+  // 16. 高性能容灾网络加载器（国内高速镜像 + 本地持久化缓存 + GM_xmlhttpRequest 穿透 CSP）
+  function fetchScriptWithGM(url) {
     return new Promise((resolve, reject) => {
-      const s = document.createElement("script");
-      s.src = url;
-      s.onload = () => resolve(true);
-      s.onerror = () => reject(new Error("CDN 加载失败: " + url));
-      document.head.appendChild(s);
+      if (typeof GM_xmlhttpRequest === "function") {
+        try {
+          GM_xmlhttpRequest({
+            method: "GET",
+            url: url,
+            timeout: 10000,
+            onload: (res) => {
+              if (res.status >= 200 && res.status < 300 && res.responseText) {
+                resolve(res.responseText);
+              } else {
+                reject(new Error("HTTP " + res.status));
+              }
+            },
+            ontimeout: () => reject(new Error("Timeout")),
+            onerror: (err) => reject(new Error("Network error"))
+          });
+        } catch (e) {
+          reject(e);
+        }
+      } else {
+        reject(new Error("GM_xmlhttpRequest not available"));
+      }
     });
   }
 
+  function injectScriptViaDOM(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement("script");
+      s.src = url;
+      s.crossOrigin = "anonymous";
+      s.onload = () => resolve(true);
+      s.onerror = () => {
+        s.remove();
+        reject(new Error("DOM script load error"));
+      };
+      (document.head || document.documentElement).appendChild(s);
+    });
+  }
+
+  async function loadLibraryWithMirrors(name, urls, checkGlobal, cacheKey) {
+    if (checkGlobal()) return true;
+
+    // 1. 本地持久化缓存检查 (0ms 秒开，离线/飞行模式 100% 可用)
+    try {
+      let cached = null;
+      if (typeof GM_getValue === "function") {
+        cached = GM_getValue(cacheKey, null);
+      }
+      if (!cached) {
+        cached = localStorage.getItem(cacheKey);
+      }
+      if (cached && cached.length > 5000) {
+        try {
+          const runner = new Function(cached);
+          runner.call(window);
+          if (checkGlobal()) return true;
+        } catch (e) {
+          console.warn("[PDF工具] 缓存执行异常，准备从 CDN 刷新:", e);
+        }
+      }
+    } catch (e) {}
+
+    // 2. 依次遍历国内与国际高速镜像节点
+    for (const url of urls) {
+      // 优先使用 GM_xmlhttpRequest 穿透网页 CSP 限制抓取源码
+      try {
+        const code = await fetchScriptWithGM(url);
+        if (code && code.length > 5000) {
+          const runner = new Function(code);
+          runner.call(window);
+          if (checkGlobal()) {
+            try {
+              if (typeof GM_setValue === "function") {
+                GM_setValue(cacheKey, code);
+              }
+              localStorage.setItem(cacheKey, code);
+            } catch (e) {}
+            return true;
+          }
+        }
+      } catch (gmErr) {
+        // 若无 GM_xmlhttpRequest，平滑回退至普通 DOM 注入
+        try {
+          await injectScriptViaDOM(url);
+          if (checkGlobal()) return true;
+        } catch (domErr) {}
+      }
+    }
+
+    throw new Error(name + " 库下载失败，请检查网络");
+  }
+
   async function executeCanvasExport(updateProgress) {
-    updateProgress(25, "加载 html2canvas 与 jsPDF...");
-    await loadLibraryOnDemand("https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js", () => !!window.html2canvas);
-    await loadLibraryOnDemand("https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js", () => !!(window.jspdf?.jsPDF || window.jsPDF));
+    updateProgress(25, "加载 html2canvas 高速镜像...");
+    const H2C_URLS = [
+      "https://registry.npmmirror.com/html2canvas/1.4.1/files/dist/html2canvas.min.js", // 阿里云国内高速节点
+      "https://npm.elemecdn.com/html2canvas@1.4.1/dist/html2canvas.min.js",            // 饿了么 CDN
+      "https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js",    // Cloudflare 全球节点
+      "https://unpkg.com/html2canvas@1.4.1/dist/html2canvas.min.js",                    // Unpkg 节点
+      "https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"          // jsDelivr 兜底
+    ];
+    await loadLibraryWithMirrors("html2canvas", H2C_URLS, () => !!window.html2canvas, "__h2c_cache_v1__");
+
+    updateProgress(35, "加载 jsPDF 高速镜像...");
+    const JSPDF_URLS = [
+      "https://registry.npmmirror.com/jspdf/2.5.1/files/dist/jspdf.umd.min.js",        // 阿里云国内高速节点
+      "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js",            // Cloudflare 全球节点
+      "https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js",                            // Unpkg 节点
+      "https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"                  // jsDelivr 兜底
+    ];
+    await loadLibraryWithMirrors("jsPDF", JSPDF_URLS, () => !!(window.jspdf?.jsPDF || window.jsPDF), "__jspdf_cache_v1__");
 
     updateProgress(45, "正在测量页面与自适应几何...");
     const crop = getEffectiveCrop();
