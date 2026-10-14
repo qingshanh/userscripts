@@ -1,0 +1,14 @@
+﻿# OS & editor artifacts
+.DS_Store
+Thumbs.db
+*.log
+desktop.ini
+
+# Temporary directories
+_tmp/
+tmp/
+.temp/
+
+# Node cache
+node_modules/
+.npm-cache/
