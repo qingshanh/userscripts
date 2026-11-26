@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         网页链接二维码生成器 (可移动/手机端适配)
 // @namespace    https://github.com/qingshanh/userscripts
-// @version      1.0.3
+// @version      1.0.4
 // @description  在网页侧面生成可自由拖拽的悬浮二维码小图标，点击后展开高清二维码，再次点击二维码立即收起并恢复小图标。完美适配手机端与PC端浏览器，支持拖拽定位、位置记忆、SPA无刷新链接动态更新、一键复制链接。
 // @author       Lance
 // @match        *://*/*
@@ -42,48 +42,65 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       -moz-osx-font-smoothing: grayscale !important;
     }
 
-    /* 悬浮小图标 (FAB) */
+    /* 悬浮小图标 (FAB)：小巧克制 + 闲置半透明 + 透明扩展触控热区 */
     .qr-fab {
       position: fixed !important;
       z-index: 2147483647 !important;
-      width: 44px !important;
-      height: 44px !important;
+      width: 34px !important;
+      height: 34px !important;
       border-radius: 50% !important;
-      background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(29, 78, 216, 0.92)) !important;
+      backdrop-filter: blur(4px) !important;
+      -webkit-backdrop-filter: blur(4px) !important;
       color: #ffffff !important;
       display: flex !important;
       align-items: center !important;
       justify-content: center !important;
       cursor: grab !important;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45), 0 2px 6px rgba(0, 0, 0, 0.15) !important;
-      border: 1.5px solid rgba(255, 255, 255, 0.35) !important;
+      opacity: 0.62 !important;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.32), 0 1px 4px rgba(0, 0, 0, 0.14) !important;
+      border: 1px solid rgba(255, 255, 255, 0.42) !important;
       touch-action: none !important;
       user-select: none !important;
       -webkit-user-select: none !important;
       -webkit-touch-callout: none !important;
+      -webkit-tap-highlight-color: transparent !important;
       transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease, opacity 0.2s ease !important;
     }
 
-    .qr-fab:hover {
-      transform: scale(1.08) !important;
-      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.55), 0 3px 8px rgba(0, 0, 0, 0.2) !important;
+    /* 透明外扩触控热区，视觉小巧同时保障 >= 44px 易点热区 */
+    .qr-fab::before {
+      content: "" !important;
+      position: absolute !important;
+      inset: -7px !important;
+      border-radius: 50% !important;
+      background: transparent !important;
+    }
+
+    @media (hover: hover) {
+      .qr-fab:hover {
+        opacity: 1 !important;
+        transform: scale(1.08) !important;
+        box-shadow: 0 4px 14px rgba(37, 99, 235, 0.45), 0 2px 6px rgba(0, 0, 0, 0.18) !important;
+      }
     }
 
     .qr-fab:active, .qr-fab.dragging {
+      opacity: 1 !important;
       cursor: grabbing !important;
       transform: scale(1.12) !important;
-      box-shadow: 0 8px 24px rgba(37, 99, 235, 0.65) !important;
+      box-shadow: 0 6px 18px rgba(37, 99, 235, 0.55) !important;
     }
 
-    .qr-fab.hidden {
+    .qr-fab.hidden, .qr-fab.fullscreen-hidden {
       opacity: 0 !important;
       pointer-events: none !important;
       transform: scale(0.55) !important;
     }
 
     .qr-fab svg {
-      width: 22px !important;
-      height: 22px !important;
+      width: 17px !important;
+      height: 17px !important;
       stroke: #ffffff !important;
       stroke-width: 2 !important;
       fill: none !important;
@@ -94,9 +111,9 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     .qr-backdrop {
       position: fixed !important;
       top: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
       left: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
       background: rgba(15, 23, 42, 0.38) !important;
       backdrop-filter: blur(2px) !important;
       -webkit-backdrop-filter: blur(2px) !important;
@@ -117,6 +134,9 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       z-index: 2147483647 !important;
       width: 276px !important;
       max-width: calc(100vw - 32px) !important;
+      max-height: calc(100vh - 24px) !important;
+      max-height: calc(100dvh - 24px) !important;
+      overflow-y: auto !important;
       background: #ffffff !important;
       border-radius: 18px !important;
       box-shadow: 0 20px 48px -6px rgba(15, 23, 42, 0.22), 0 8px 20px -4px rgba(15, 23, 42, 0.1) !important;
@@ -332,16 +352,24 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       color: #1e293b !important;
     }
 
-    /* 手机端界面精调 (屏幕宽度 <= 640px) */
+    /* 手机端悬浮按钮精调 (视口宽度 <= 640px)：更小巧不遮挡，保留 44px 隐形触控热区 */
     @media (max-width: 640px) {
       .qr-fab {
-        width: 46px !important;
-        height: 46px !important;
+        width: 30px !important;
+        height: 30px !important;
+        opacity: 0.58 !important;
+      }
+      .qr-fab::before {
+        inset: -7px !important;
       }
       .qr-fab svg {
-        width: 23px !important;
-        height: 23px !important;
+        width: 15px !important;
+        height: 15px !important;
       }
+    }
+
+    /* 手机端/矮屏卡片居中自适应 (宽度 <= 640px 或高度 <= 500px) */
+    @media (max-width: 640px), (max-height: 500px) {
       .qr-card {
         left: 50% !important;
         top: 50% !important;
@@ -362,6 +390,12 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
         height: 185px !important;
         max-width: 185px !important;
         max-height: 185px !important;
+      }
+    }
+
+    @media print {
+      :host, .qr-fab, .qr-backdrop, .qr-card {
+        display: none !important;
       }
     }
   `;
@@ -444,8 +478,8 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   `;
   shadow.appendChild(container);
 
-  // 挂载到根节点
-  (document.body || document.documentElement).appendChild(host);
+  // 挂载到根节点 (优先挂载到 <html>，避免部分 SPA 重绘 body 导致组件丢失)
+  (document.documentElement || document.body).appendChild(host);
 
   // 5. 元素句柄获取
   const fab = shadow.getElementById('qr-fab') || shadow.querySelector('#qr-fab');
@@ -459,14 +493,28 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   const copyLabel = shadow.getElementById('qr-copy-label') || shadow.querySelector('#qr-copy-label');
   const refreshBtn = shadow.getElementById('qr-refresh-btn') || shadow.querySelector('#qr-refresh-btn');
 
-  // 6. 状态变量
+  // 6. 状态变量与定位工具
   let isOpen = false;
+  let isTemporarilyHidden = false;
   let lastUrl = '';
-  let justDragged = false;
-  let dragTimer = null;
+  let lastDragEndTime = 0;
+  let copyTimer = null;
+  let currentPos = { x: 0, y: 0 };
 
-  // 存储键名
   const STORAGE_KEY = '__url_to_qrcode_fab_pos__';
+  const EDGE_PADDING = 8;
+
+  function getFabMetrics() {
+    const fallback = window.innerWidth <= 640 ? 30 : 34;
+    return {
+      width: fab.offsetWidth || fallback,
+      height: fab.offsetHeight || fallback
+    };
+  }
+
+  function getDefaultRatio() {
+    return { rx: 1, ry: 0.65 };
+  }
 
   function getStoredPosition() {
     try {
@@ -481,7 +529,18 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   }
 
   function savePosition(x, y) {
-    const data = { x: Math.round(x), y: Math.round(y) };
+    const { width, height } = getFabMetrics();
+    const spanX = Math.max(0, window.innerWidth - width - EDGE_PADDING * 2);
+    const spanY = Math.max(0, window.innerHeight - height - EDGE_PADDING * 2);
+    const rx = spanX > 0 ? Math.max(0, Math.min(1, (x - EDGE_PADDING) / spanX)) : 1;
+    const ry = spanY > 0 ? Math.max(0, Math.min(1, (y - EDGE_PADDING) / spanY)) : 0.65;
+
+    const data = {
+      x: Math.round(x),
+      y: Math.round(y),
+      rx: Number(rx.toFixed(4)),
+      ry: Number(ry.toFixed(4))
+    };
     try {
       if (typeof GM_setValue === 'function') {
         GM_setValue('fab_pos', JSON.stringify(data));
@@ -490,84 +549,116 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     } catch (e) {}
   }
 
-  // 边界约束与初始化定位
+  // 边界约束与定位（支持基于比例还原，避免缩放/横竖屏切换跑偏）
   function clampAndSetFabPosition(x, y, save = false) {
-    const fabSize = 44;
-    const padding = 8;
-    const maxX = Math.max(padding, window.innerWidth - fabSize - padding);
-    const maxY = Math.max(padding, window.innerHeight - fabSize - padding);
+    const { width, height } = getFabMetrics();
+    const maxX = Math.max(EDGE_PADDING, window.innerWidth - width - EDGE_PADDING);
+    const maxY = Math.max(EDGE_PADDING, window.innerHeight - height - EDGE_PADDING);
 
-    const clampedX = Math.max(padding, Math.min(maxX, x));
-    const clampedY = Math.max(padding, Math.min(maxY, y));
+    const clampedX = Math.max(EDGE_PADDING, Math.min(maxX, x));
+    const clampedY = Math.max(EDGE_PADDING, Math.min(maxY, y));
 
+    currentPos = { x: clampedX, y: clampedY };
     fab.style.left = clampedX + 'px';
     fab.style.top = clampedY + 'px';
 
     if (save) {
       savePosition(clampedX, clampedY);
     }
-    return { x: clampedX, y: clampedY };
+    return currentPos;
+  }
+
+  function applyPositionByRatio(rx, ry) {
+    const { width, height } = getFabMetrics();
+    const spanX = Math.max(0, window.innerWidth - width - EDGE_PADDING * 2);
+    const spanY = Math.max(0, window.innerHeight - height - EDGE_PADDING * 2);
+    const x = EDGE_PADDING + spanX * rx;
+    const y = EDGE_PADDING + spanY * ry;
+    return clampAndSetFabPosition(x, y, false);
   }
 
   function initFabPosition() {
     const saved = getStoredPosition();
-    const fabSize = 44;
-    if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
+    if (saved && typeof saved.rx === 'number' && typeof saved.ry === 'number') {
+      applyPositionByRatio(saved.rx, saved.ry);
+    } else if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') {
       clampAndSetFabPosition(saved.x, saved.y, false);
     } else {
-      // 默认靠右下侧停靠 (距右边缘 12px，垂直约屏幕 65% 高度)
-      const defX = window.innerWidth - fabSize - 12;
-      const defY = Math.max(80, Math.min(window.innerHeight - fabSize - 80, Math.round(window.innerHeight * 0.65)));
+      // 默认靠右下侧停靠 (距右边缘 10px，垂直约屏幕 65% 高度)
+      const { width, height } = getFabMetrics();
+      const defX = window.innerWidth - width - 10;
+      const defY = Math.max(64, Math.min(window.innerHeight - height - 64, Math.round(window.innerHeight * 0.65)));
       clampAndSetFabPosition(defX, defY, false);
     }
   }
 
   initFabPosition();
 
-  // 窗口尺寸变化重新吸附边界
-  window.addEventListener('resize', () => {
-    const rect = fab.getBoundingClientRect();
-    clampAndSetFabPosition(rect.left, rect.top, true);
+  // 窗口尺寸或横竖屏变化时重新适配位置 (不覆盖用户存储的比例偏好)
+  function handleViewportResize() {
+    const saved = getStoredPosition();
+    if (saved && typeof saved.rx === 'number' && typeof saved.ry === 'number') {
+      applyPositionByRatio(saved.rx, saved.ry);
+    } else {
+      clampAndSetFabPosition(currentPos.x, currentPos.y, false);
+    }
     if (isOpen) {
       positionCard();
     }
-  });
+  }
 
-  // 7. 拖拽逻辑 (同时支持 Mouse、Pointer 与 Touch 事件，区分点击与拖动)
+  window.addEventListener('resize', handleViewportResize);
+  window.addEventListener('orientationchange', handleViewportResize);
+
+  // 7. 拖拽逻辑 (PointerEvent 优先，不支持时才降级到 Touch/Mouse，杜绝双事件冲突)
   let isPointerDown = false;
   let isDragging = false;
+  let activePointerId = null;
   let startPointerX = 0;
   let startPointerY = 0;
   let startFabLeft = 0;
   let startFabTop = 0;
 
+  function getClientPoint(e) {
+    if (typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+      return { x: e.clientX, y: e.clientY };
+    }
+    const touch = (e.touches && e.touches[0]) || (e.changedTouches && e.changedTouches[0]);
+    if (touch) {
+      return { x: touch.clientX, y: touch.clientY };
+    }
+    return null;
+  }
+
   function onPointerDown(e) {
-    // 仅响应鼠标左键或触控
-    if (e.button && e.button !== 0) return;
+    if (typeof e.button === 'number' && e.button !== 0 && (!e.pointerType || e.pointerType === 'mouse')) return;
+    const pt = getClientPoint(e);
+    if (!pt) return;
 
     isPointerDown = true;
     isDragging = false;
-    startPointerX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    startPointerY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
+    activePointerId = typeof e.pointerId === 'number' ? e.pointerId : null;
+    startPointerX = pt.x;
+    startPointerY = pt.y;
+    startFabLeft = currentPos.x;
+    startFabTop = currentPos.y;
 
-    const rect = fab.getBoundingClientRect();
-    startFabLeft = rect.left;
-    startFabTop = rect.top;
-
-    if (e.pointerId && typeof fab.setPointerCapture === 'function') {
+    if (activePointerId !== null && typeof fab.setPointerCapture === 'function') {
       try {
-        fab.setPointerCapture(e.pointerId);
+        fab.setPointerCapture(activePointerId);
       } catch (err) {}
     }
   }
 
   function onPointerMove(e) {
     if (!isPointerDown) return;
+    if (activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== activePointerId) return;
 
-    const curX = e.clientX || (e.touches && e.touches[0].clientX) || 0;
-    const curY = e.clientY || (e.touches && e.touches[0].clientY) || 0;
-    const dx = curX - startPointerX;
-    const dy = curY - startPointerY;
+    const pt = getClientPoint(e);
+    if (!pt) return;
+
+    const dx = pt.x - startPointerX;
+    const dy = pt.y - startPointerY;
 
     // 移动距离大于 6px 判定为拖拽行为，避免普通点击抖动被误判
     if (!isDragging && Math.hypot(dx, dy) > 6) {
@@ -576,75 +667,73 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
     }
 
     if (isDragging) {
-      e.preventDefault();
+      if (e.cancelable) e.preventDefault();
       clampAndSetFabPosition(startFabLeft + dx, startFabTop + dy, false);
     }
   }
 
   function onPointerUp(e) {
     if (!isPointerDown) return;
+    if (activePointerId !== null && typeof e.pointerId === 'number' && e.pointerId !== activePointerId) return;
+
     isPointerDown = false;
 
-    if (e.pointerId && typeof fab.releasePointerCapture === 'function') {
+    if (activePointerId !== null && typeof fab.releasePointerCapture === 'function') {
       try {
-        fab.releasePointerCapture(e.pointerId);
+        fab.releasePointerCapture(activePointerId);
       } catch (err) {}
     }
+    activePointerId = null;
 
     if (isDragging) {
       isDragging = false;
       fab.classList.remove('dragging');
-
-      const rect = fab.getBoundingClientRect();
-      clampAndSetFabPosition(rect.left, rect.top, true);
-
-      // 设置防误触标记，避免拖拽结束瞬间触发点击展开
-      justDragged = true;
-      clearTimeout(dragTimer);
-      dragTimer = setTimeout(() => {
-        justDragged = false;
-      }, 120);
+      clampAndSetFabPosition(currentPos.x, currentPos.y, true);
+      lastDragEndTime = Date.now();
     }
   }
 
-  // 绑定 Pointer Events (桌面端 + 现代移动端主流)
-  fab.addEventListener('pointerdown', onPointerDown, { passive: false });
-  window.addEventListener('pointermove', onPointerMove, { passive: false });
-  window.addEventListener('pointerup', onPointerUp, { passive: false });
-  window.addEventListener('pointercancel', onPointerUp, { passive: false });
-
-  // 触控兜底 (兼容部分旧版安卓 WebView 或 X浏览器)
-  fab.addEventListener('touchstart', onPointerDown, { passive: false });
-  window.addEventListener('touchmove', onPointerMove, { passive: false });
-  window.addEventListener('touchend', onPointerUp, { passive: false });
-  window.addEventListener('touchcancel', onPointerUp, { passive: false });
+  if (typeof window.PointerEvent === 'function') {
+    fab.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+  } else {
+    fab.addEventListener('mousedown', onPointerDown);
+    window.addEventListener('mousemove', onPointerMove);
+    window.addEventListener('mouseup', onPointerUp);
+    fab.addEventListener('touchstart', onPointerDown, { passive: false });
+    window.addEventListener('touchmove', onPointerMove, { passive: false });
+    window.addEventListener('touchend', onPointerUp);
+    window.addEventListener('touchcancel', onPointerUp);
+  }
 
   // 8. 卡片定位算法
   function positionCard() {
-    if (window.innerWidth <= 640) {
-      // 手机端由 CSS media query 居中展示
+    if (window.innerWidth <= 640 || window.innerHeight <= 500) {
+      // 手机端或矮屏由 CSS media query 居中展示
       card.style.left = '';
       card.style.top = '';
       return;
     }
 
     // 桌面端紧邻悬浮小图标侧边展开
-    const fabRect = fab.getBoundingClientRect();
-    const cardWidth = 276;
-    const cardHeight = 350;
+    const { width: fabWidth } = getFabMetrics();
+    const cardWidth = card.offsetWidth || 276;
+    const cardHeight = card.offsetHeight || 350;
     const margin = 12;
 
     // 默认优先靠左侧展开，若左边放不下则靠右展开
-    let left = fabRect.left - cardWidth - margin;
+    let left = currentPos.x - cardWidth - margin;
     if (left < 16) {
-      left = fabRect.right + margin;
+      left = currentPos.x + fabWidth + margin;
     }
     if (left + cardWidth > window.innerWidth - 16) {
       left = window.innerWidth - cardWidth - 16;
     }
     left = Math.max(16, left);
 
-    let top = fabRect.top;
+    let top = currentPos.y;
     if (top + cardHeight > window.innerHeight - 16) {
       top = window.innerHeight - cardHeight - 16;
     }
@@ -655,9 +744,22 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   }
 
   // 9. 二维码生成核心 (增强型双轨保障：杜绝空白与溢出)
+  function renderErrorMessage(message) {
+    codeTarget.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'color:#ef4444;font-size:12px;padding:20px;text-align:center;line-height:1.5;';
+    wrapper.appendChild(document.createTextNode('二维码生成失败'));
+    wrapper.appendChild(document.createElement('br'));
+    const detail = document.createElement('span');
+    detail.style.cssText = 'font-size:10px;color:#94a3b8;word-break:break-all;';
+    detail.textContent = message || '数据异常';
+    wrapper.appendChild(detail);
+    codeTarget.appendChild(wrapper);
+  }
+
   function generateQRCode(url) {
     codeTarget.innerHTML = '';
-    const size = window.innerWidth <= 640 ? 185 : 195;
+    const size = (window.innerWidth <= 640 || window.innerHeight <= 500) ? 185 : 195;
 
     try {
       new QRCode(codeTarget, {
@@ -681,7 +783,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
         });
       } catch (err2) {
         console.error('[QR Generator] Error generating QR:', err2);
-        codeTarget.innerHTML = `<div style="color:#ef4444;font-size:12px;padding:20px;text-align:center;">二维码生成失败<br><span style="font-size:10px;color:#94a3b8;">${err2 && err2.message ? err2.message : '数据异常'}</span></div>`;
+        renderErrorMessage(err2 && err2.message ? err2.message : '链接过长或数据异常');
         return;
       }
     }
@@ -734,17 +836,38 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
 
     backdrop.classList.remove('active');
     card.classList.remove('active');
-    fab.classList.remove('hidden'); // 恢复原始小图标
+    if (!isTemporarilyHidden) {
+      fab.classList.remove('hidden'); // 恢复原始小图标
+    }
   }
 
   function toggleQR() {
-    if (justDragged) return;
+    if (Date.now() - lastDragEndTime < 260) return;
     if (isOpen) {
       closeQR();
     } else {
       openQR();
     }
   }
+
+  // 全屏模式自动隐藏悬浮图标，避免遮挡视频播放
+  function syncFullscreenState() {
+    const isFullscreen = Boolean(
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.mozFullScreenElement ||
+      document.msFullscreenElement
+    );
+    if (isFullscreen) {
+      if (isOpen) closeQR();
+      fab.classList.add('fullscreen-hidden');
+    } else {
+      fab.classList.remove('fullscreen-hidden');
+    }
+  }
+
+  document.addEventListener('fullscreenchange', syncFullscreenState);
+  document.addEventListener('webkitfullscreenchange', syncFullscreenState);
 
   // 悬浮小图标点击事件
   fab.addEventListener('click', (e) => {
@@ -780,6 +903,7 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
   copyBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     const currentUrl = window.location.href;
+    clearTimeout(copyTimer);
     try {
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(currentUrl);
@@ -798,13 +922,14 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
 
       copyLabel.textContent = '已复制!';
       copyBtn.classList.add('copied');
-      setTimeout(() => {
+      copyTimer = setTimeout(() => {
         copyLabel.textContent = '复制链接';
         copyBtn.classList.remove('copied');
       }, 1500);
     } catch (err) {
       copyLabel.textContent = '复制失败';
-      setTimeout(() => {
+      copyBtn.classList.remove('copied');
+      copyTimer = setTimeout(() => {
         copyLabel.textContent = '复制链接';
       }, 1500);
     }
@@ -832,10 +957,20 @@ var QRCode;!function(){function a(a){this.mode=c.MODE_8BIT_BYTE,this.data=a,this
       openQR();
     });
     GM_registerMenuCommand('重置悬浮图标位置', () => {
-      const fabSize = 44;
-      const defX = window.innerWidth - fabSize - 12;
-      const defY = Math.max(80, Math.min(window.innerHeight - fabSize - 80, Math.round(window.innerHeight * 0.65)));
-      clampAndSetFabPosition(defX, defY, true);
+      isTemporarilyHidden = false;
+      fab.classList.remove('hidden');
+      const { rx, ry } = getDefaultRatio();
+      const pos = applyPositionByRatio(rx, ry);
+      savePosition(pos.x, pos.y);
+    });
+    GM_registerMenuCommand('隐藏/显示当前页悬浮图标', () => {
+      isTemporarilyHidden = !isTemporarilyHidden;
+      if (isTemporarilyHidden) {
+        if (isOpen) closeQR();
+        fab.classList.add('hidden');
+      } else {
+        fab.classList.remove('hidden');
+      }
     });
   }
 })();
